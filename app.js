@@ -69,7 +69,7 @@ function showView(viewId) {
     if (window.lucide) lucide.createIcons();
 }
 
-// --- 3. 视图渲染函数 (占位) ---
+// --- 3. 视图渲染函数 ---
 
 function renderProjectsView(container) {
     container.innerHTML = `
@@ -94,6 +94,9 @@ function renderProjectsView(container) {
 }
 
 function renderProjectCard(project) {
+    const projectTasks = appData.tasks.filter(t => t.projectId === project.id);
+    const completedCount = projectTasks.filter(t => t.isCompleted).underline;
+    
     return `
         <div class="notion-card p-6 bg-white shadow-sm flex flex-col h-full">
             <div class="flex justify-between items-start mb-4">
@@ -110,9 +113,9 @@ function renderProjectCard(project) {
                 </div>
             </div>
             <h3 class="text-xl font-bold mb-1">${project.school}</h3>
-            <p class="text-gray-500 text-sm mb-6">${project.major}</p>
+            <p class="text-gray-500 text-sm mb-4">${project.major}</p>
             
-            <div class="space-y-3 mb-6">
+            <div class="space-y-2 mb-6 flex-1">
                 <div class="flex items-center gap-2 text-xs text-gray-500">
                     <i data-lucide="award" class="w-3 h-3"></i>
                     <span>语言要求: ${project.requirements.ielts || '未设置'}</span>
@@ -121,11 +124,27 @@ function renderProjectCard(project) {
                     <i data-lucide="users" class="w-3 h-3"></i>
                     <span>推荐信: ${project.requirements.recommendationLetters} 封</span>
                 </div>
+                
+                <div class="mt-4 pt-4 border-t border-gray-50">
+                    <p class="text-[10px] text-gray-400 uppercase font-bold mb-2">专属任务 (${projectTasks.length})</p>
+                    <div class="space-y-1">
+                        ${projectTasks.length === 0 ? 
+                            '<p class="text-xs text-gray-300 italic">暂无专属任务</p>' : 
+                            projectTasks.slice(0, 3).map(t => `
+                                <div class="flex items-center gap-2 text-xs ${t.isCompleted ? 'text-gray-300 line-through' : 'text-gray-600'}">
+                                    <div class="w-1 h-1 rounded-full ${t.isCompleted ? 'bg-gray-200' : 'bg-blue-400'}"></div>
+                                    <span class="truncate">${t.title}</span>
+                                </div>
+                            `).join('')
+                        }
+                        ${projectTasks.length > 3 ? `<p class="text-[10px] text-blue-400 mt-1">还有 ${projectTasks.length - 3} 个任务...</p>` : ''}
+                    </div>
+                </div>
             </div>
 
             <div class="mt-auto">
                 <div class="flex justify-between text-xs text-gray-500 mb-1.5">
-                    <span>准备进度</span>
+                    <span>总进度 (含通用)</span>
                     <span>${calculateProgress(project.id)}%</span>
                 </div>
                 <div class="progress-bar">
@@ -211,15 +230,73 @@ function renderTaskList(tasks) {
                     ${t.description ? `<p class="text-xs text-gray-400 mt-1 leading-relaxed">${t.description}</p>` : ''}
                 </div>
             </div>
-            <button onclick="deleteTask(${t.id})" class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition px-2">
-                <i data-lucide="x" class="w-4 h-4"></i>
-            </button>
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                <button onclick="editTask(${t.id})" class="text-gray-300 hover:text-blue-500 transition px-2">
+                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                <button onclick="deleteTask(${t.id})" class="text-gray-300 hover:text-red-500 transition px-2">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
         </div>
     `).join('');
 }
 
-// --- 3.2 任务管理逻辑 ---
+// --- 4. 业务逻辑 ---
 
+// 4.1 项目管理
+function addProject() {
+    const modal = document.getElementById('project-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeModal() {
+    const modal = document.getElementById('project-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function confirmAddProject() {
+    const school = document.getElementById('school-input').value.trim();
+    const major = document.getElementById('major-input').value.trim();
+    
+    if (!school || !major) {
+        alert('请填入学校和专业名称！');
+        return;
+    }
+
+    const newProject = {
+        id: Date.now(),
+        school: school,
+        major: major,
+        requirements: {
+            ielts: '',
+            recommendationLetters: 0,
+            personalStatement: false,
+            researchProposal: false
+        }
+    };
+
+    appData.projects.push(newProject);
+    saveData();
+    closeModal();
+    showView('projects');
+    
+    document.getElementById('school-input').value = '';
+    document.getElementById('major-input').value = '';
+}
+
+function deleteProject(projectId) {
+    if (confirm('确定要删除这个项目吗？相关的任务也将被删除。')) {
+        appData.projects = appData.projects.filter(p => p.id !== projectId);
+        appData.tasks = appData.tasks.filter(t => t.projectId !== projectId);
+        saveData();
+        showView('projects');
+    }
+}
+
+// 4.2 任务管理
 function addTask() {
     const title = document.getElementById('task-input').value.trim();
     const description = document.getElementById('task-desc-input').value.trim();
@@ -243,7 +320,7 @@ function addTask() {
 
     appData.tasks.push(newTask);
     saveData();
-    showView('tasks'); // 刷新视图
+    showView('tasks');
 }
 
 function toggleTask(taskId) {
@@ -251,7 +328,13 @@ function toggleTask(taskId) {
     if (task) {
         task.isCompleted = !task.isCompleted;
         saveData();
-        showView('tasks');
+        // 如果在项目视图，刷新项目视图以更新进度
+        const currentNav = document.querySelector('.sidebar-item.active').id;
+        if (currentNav === 'nav-projects') {
+            showView('projects');
+        } else {
+            showView('tasks');
+        }
     }
 }
 
@@ -261,12 +344,91 @@ function deleteTask(taskId) {
     showView('tasks');
 }
 
-function calculateProgress(projectId) {
-    const projectTasks = appData.tasks.filter(t => t.projectId === projectId || t.projectId === null);
-    if (projectTasks.length === 0) return 0;
+function editTask(taskId) {
+    const task = appData.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById('edit-task-id').value = task.id;
+    document.getElementById('edit-task-title').value = task.title;
+    document.getElementById('edit-task-deadline').value = task.deadline || '';
+    document.getElementById('edit-task-desc').value = task.description || '';
     
-    const completedTasks = projectTasks.filter(t => t.isCompleted);
-    return Math.round((completedTasks.length / projectTasks.length) * 100);
+    const projectSelect = document.getElementById('edit-task-project');
+    projectSelect.innerHTML = `
+        <option value="null">通用任务 (所有项目共享)</option>
+        ${appData.projects.map(p => `<option value="${p.id}" ${p.id === task.projectId ? 'selected' : ''}>${p.school}</option>`).join('')}
+    `;
+
+    const modal = document.getElementById('task-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeTaskModal() {
+    const modal = document.getElementById('task-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function saveTaskEdit() {
+    const taskId = Number(document.getElementById('edit-task-id').value);
+    const task = appData.tasks.find(t => t.id === taskId);
+    
+    if (task) {
+        task.title = document.getElementById('edit-task-title').value.trim();
+        task.deadline = document.getElementById('edit-task-deadline').value;
+        task.description = document.getElementById('edit-task-desc').value.trim();
+        const projectIdVal = document.getElementById('edit-task-project').value;
+        task.projectId = projectIdVal === 'null' ? null : Number(projectIdVal);
+
+        if (!task.title) {
+            alert('标题不能为空');
+            return;
+        }
+
+        saveData();
+        closeTaskModal();
+        showView('tasks');
+    }
+}
+
+// 4.3 要求配置
+function editRequirements(projectId) {
+    const project = appData.projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    document.getElementById('req-project-id').value = projectId;
+    document.getElementById('req-ielts').value = project.requirements.ielts || '';
+    document.getElementById('req-letters').value = project.requirements.recommendationLetters || 0;
+    document.getElementById('req-ps').checked = project.requirements.personalStatement || false;
+    document.getElementById('req-rp').checked = project.requirements.researchProposal || false;
+
+    const modal = document.getElementById('req-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeReqModal() {
+    const modal = document.getElementById('req-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function saveRequirements() {
+    const projectId = Number(document.getElementById('req-project-id').value);
+    const project = appData.projects.find(p => p.id === projectId);
+    
+    if (project) {
+        project.requirements = {
+            ielts: document.getElementById('req-ielts').value,
+            recommendationLetters: parseInt(document.getElementById('req-letters').value) || 0,
+            personalStatement: document.getElementById('req-ps').checked,
+            researchProposal: document.getElementById('req-rp').checked
+        };
+        saveData();
+        closeReqModal();
+        showView('projects');
+    }
 }
 
 function renderComparisonView(container) {
@@ -336,102 +498,7 @@ function renderComparisonView(container) {
     `;
 }
 
-// --- 3.1 项目管理逻辑 ---
-
-function addProject() {
-    const modal = document.getElementById('project-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeModal() {
-    const modal = document.getElementById('project-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-function confirmAddProject() {
-    const school = document.getElementById('school-input').value.trim();
-    const major = document.getElementById('major-input').value.trim();
-    
-    if (!school || !major) {
-        alert('请填入学校和专业名称！');
-        return;
-    }
-
-    const newProject = {
-        id: Date.now(),
-        school: school,
-        major: major,
-        requirements: {
-            ielts: '',
-            recommendationLetters: 0,
-            personalStatement: false,
-            researchProposal: false
-        }
-    };
-
-    appData.projects.push(newProject);
-    saveData();
-    closeModal();
-    showView('projects'); // 刷新视图
-    
-    // 清空输入框
-    document.getElementById('school-input').value = '';
-    document.getElementById('major-input').value = '';
-}
-
-function deleteProject(projectId) {
-    if (confirm('确定要删除这个项目吗？相关的任务也将被删除。')) {
-        appData.projects = appData.projects.filter(p => p.id !== projectId);
-        appData.tasks = appData.tasks.filter(t => t.projectId !== projectId);
-        saveData();
-        showView('projects');
-    }
-}
-
-// --- 3.3 要求配置逻辑 ---
-
-function editRequirements(projectId) {
-    const project = appData.projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    document.getElementById('req-project-id').value = projectId;
-    document.getElementById('req-modal-title').innerText = `${project.school} - 配置要求`;
-    document.getElementById('req-ielts').value = project.requirements.ielts || '';
-    document.getElementById('req-letters').value = project.requirements.recommendationLetters || 0;
-    document.getElementById('req-ps').checked = project.requirements.personalStatement || false;
-    document.getElementById('req-rp').checked = project.requirements.researchProposal || false;
-
-    const modal = document.getElementById('req-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeReqModal() {
-    const modal = document.getElementById('req-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-function saveRequirements() {
-    const projectId = Number(document.getElementById('req-project-id').value);
-    const project = appData.projects.find(p => p.id === projectId);
-    
-    if (project) {
-        project.requirements = {
-            ielts: document.getElementById('req-ielts').value,
-            recommendationLetters: parseInt(document.getElementById('req-letters').value) || 0,
-            personalStatement: document.getElementById('req-ps').checked,
-            researchProposal: document.getElementById('req-rp').checked
-        };
-        saveData();
-        closeReqModal();
-        showView('projects'); // 刷新视图
-    }
-}
-
-// --- 4. 辅助函数 ---
+// --- 5. 辅助函数 ---
 
 function updateSidebar() {
     const sidebarList = document.getElementById('sidebar-projects-list');
@@ -447,8 +514,6 @@ function updateSidebar() {
 
 function calculateProgress(projectId) {
     const projectTasks = appData.tasks.filter(t => t.projectId === projectId || t.projectId === null);
-    
-    // 如果没有任务，进度为 0
     if (projectTasks.length === 0) return 0;
     
     const completedTasks = projectTasks.filter(t => t.isCompleted);
@@ -457,7 +522,7 @@ function calculateProgress(projectId) {
     return progress;
 }
 
-// --- 5. 初始化 ---
+// --- 6. 初始化 ---
 
 document.addEventListener('DOMContentLoaded', () => {
     showView('projects');

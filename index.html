@@ -139,6 +139,38 @@
         </div>
     </div>
 
+    <!-- Task Edit Modal Overlay -->
+    <div id="task-modal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 class="text-xl font-bold mb-6">修改任务</h2>
+            <input type="hidden" id="edit-task-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-400 font-bold mb-1">任务标题</label>
+                    <input id="edit-task-title" type="text" class="w-full border-b border-gray-200 py-2 focus:border-blue-400 outline-none text-sm" placeholder="任务标题">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 font-bold mb-1">截止日期</label>
+                    <input id="edit-task-deadline" type="date" class="w-full border-b border-gray-200 py-2 focus:border-blue-400 outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 font-bold mb-1">任务详情</label>
+                    <textarea id="edit-task-desc" class="w-full px-3 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white text-sm h-24" placeholder="任务详情..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 font-bold mb-1">所属项目</label>
+                    <select id="edit-task-project" class="w-full border-b border-gray-200 py-2 focus:border-blue-400 outline-none text-sm bg-white">
+                        <option value="null">通用任务 (所有项目共享)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end space-x-3">
+                <button onclick="closeTaskModal()" class="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded">取消</button>
+                <button onclick="saveTaskEdit()" class="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">保存修改</button>
+            </div>
+        </div>
+    </div>
+
     <!-- App Logic -->
     <script src="app.js"></script>
     <script>
