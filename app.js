@@ -26,9 +26,9 @@ if (!appData) {
             }
         ],
         tasks: [
-            { id: Date.now(), title: '完善个人简历 (CV)', isCompleted: false, projectId: null },
-            { id: Date.now() + 1, title: '准备个人陈述 (PS) 通用模板', isCompleted: true, projectId: null },
-            { id: Date.now() + 2, title: '联系 UCL 的推荐人', isCompleted: false, projectId: 1 }
+            { id: Date.now(), title: '完善个人简历 (CV)', description: '包含实习经历、学术项目和技能列表。', deadline: '2026-04-01', isCompleted: false, projectId: null },
+            { id: Date.now() + 1, title: '准备个人陈述 (PS) 通用模板', description: '重点突出申请动机和职业规划。', deadline: '2026-04-15', isCompleted: true, projectId: null },
+            { id: Date.now() + 2, title: '联系 UCL 的推荐人', description: '发邮件确认是否愿意提供推荐信。', deadline: '2026-03-30', isCompleted: false, projectId: 1 }
         ]
     };
     saveData();
@@ -146,15 +146,21 @@ function renderTasksView(container) {
         <!-- Add Task Form -->
         <div class="mb-10 bg-gray-50 p-6 rounded-lg">
             <h3 class="text-sm font-bold text-gray-400 uppercase mb-4 tracking-widest">添加新任务</h3>
-            <div class="flex flex-col md:flex-row gap-4">
-                <input id="task-input" type="text" class="flex-1 px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400" placeholder="任务内容，例如：联系推荐人">
-                <select id="task-project-select" class="px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white">
-                    <option value="null">通用任务 (所有项目共享)</option>
-                    ${appData.projects.map(p => `<option value="${p.id}">${p.school}</option>`).join('')}
-                </select>
-                <button onclick="addTask()" class="bg-black text-white px-6 py-2 rounded hover:bg-gray-800 transition">
-                    添加
-                </button>
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <input id="task-input" type="text" class="flex-1 px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400" placeholder="任务标题，例如：联系推荐人">
+                    <input id="task-deadline-input" type="date" class="px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white text-sm text-gray-500">
+                    <select id="task-project-select" class="px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white">
+                        <option value="null">通用任务 (所有项目共享)</option>
+                        ${appData.projects.map(p => `<option value="${p.id}">${p.school}</option>`).join('')}
+                    </select>
+                </div>
+                <textarea id="task-desc-input" class="w-full px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white text-sm h-20" placeholder="任务详情或具体要求..."></textarea>
+                <div class="flex justify-end">
+                    <button onclick="addTask()" class="bg-black text-white px-8 py-2 rounded hover:bg-gray-800 transition">
+                        添加任务
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -192,12 +198,18 @@ function renderTaskList(tasks) {
     }
     
     return tasks.map(t => `
-        <div class="group flex items-center justify-between p-3 rounded hover:bg-gray-50 border-b border-gray-50 transition">
-            <div class="flex items-center gap-3">
+        <div class="group flex items-start justify-between p-3 rounded hover:bg-gray-50 border-b border-gray-50 transition">
+            <div class="flex items-start gap-3 flex-1">
                 <input type="checkbox" ${t.isCompleted ? 'checked' : ''} 
                     onchange="toggleTask(${t.id})"
-                    class="w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
-                <span class="${t.isCompleted ? 'line-through text-gray-300' : 'text-gray-700'}">${t.title}</span>
+                    class="mt-1 w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <p class="font-medium ${t.isCompleted ? 'line-through text-gray-300' : 'text-gray-700'}">${t.title}</p>
+                        ${t.deadline ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 font-bold uppercase">截止: ${t.deadline}</span>` : ''}
+                    </div>
+                    ${t.description ? `<p class="text-xs text-gray-400 mt-1 leading-relaxed">${t.description}</p>` : ''}
+                </div>
             </div>
             <button onclick="deleteTask(${t.id})" class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition px-2">
                 <i data-lucide="x" class="w-4 h-4"></i>
@@ -210,17 +222,21 @@ function renderTaskList(tasks) {
 
 function addTask() {
     const title = document.getElementById('task-input').value.trim();
+    const description = document.getElementById('task-desc-input').value.trim();
+    const deadline = document.getElementById('task-deadline-input').value;
     const projectIdVal = document.getElementById('task-project-select').value;
     const projectId = projectIdVal === 'null' ? null : Number(projectIdVal);
 
     if (!title) {
-        alert('请输入任务内容！');
+        alert('请输入任务标题！');
         return;
     }
 
     const newTask = {
         id: Date.now(),
         title: title,
+        description: description,
+        deadline: deadline,
         isCompleted: false,
         projectId: projectId
     };
