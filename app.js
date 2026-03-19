@@ -17,12 +17,11 @@ if (!appData) {
                 id: 1,
                 school: '伦敦大学学院 (UCL)',
                 major: '教育技术',
-                requirements: {
-                    ielts: '7.0 (6.5)',
-                    recommendationLetters: 2,
-                    personalStatement: true,
-                    researchProposal: false
-                }
+                requirements: [
+                    { name: '语言要求 (IELTS)', value: '7.0 (6.5)' },
+                    { name: '推荐信', value: '2 封' },
+                    { name: '个人陈述 (PS)', value: '需要' }
+                ]
             }
         ],
         tasks: [
@@ -116,15 +115,6 @@ function renderProjectCard(project) {
             <p class="text-gray-500 text-sm mb-4">${project.major}</p>
             
             <div class="space-y-2 mb-6 flex-1">
-                <div class="flex items-center gap-2 text-xs text-gray-500">
-                    <i data-lucide="award" class="w-3 h-3"></i>
-                    <span>语言要求: ${project.requirements.ielts || '未设置'}</span>
-                </div>
-                <div class="flex items-center gap-2 text-xs text-gray-500">
-                    <i data-lucide="users" class="w-3 h-3"></i>
-                    <span>推荐信: ${project.requirements.recommendationLetters} 封</span>
-                </div>
-                
                 <div class="mt-4 pt-4 border-t border-gray-50">
                     <p class="text-[10px] text-gray-400 uppercase font-bold mb-2">专属任务 (${projectTasks.length})</p>
                     <div class="space-y-1">
@@ -270,12 +260,7 @@ function confirmAddProject() {
         id: Date.now(),
         school: school,
         major: major,
-        requirements: {
-            ielts: '',
-            recommendationLetters: 0,
-            personalStatement: false,
-            researchProposal: false
-        }
+        requirements: []
     };
 
     appData.projects.push(newProject);
@@ -398,14 +383,40 @@ function editRequirements(projectId) {
     if (!project) return;
 
     document.getElementById('req-project-id').value = projectId;
-    document.getElementById('req-ielts').value = project.requirements.ielts || '';
-    document.getElementById('req-letters').value = project.requirements.recommendationLetters || 0;
-    document.getElementById('req-ps').checked = project.requirements.personalStatement || false;
-    document.getElementById('req-rp').checked = project.requirements.researchProposal || false;
+    document.getElementById('req-modal-title').innerText = `${project.school} - 配置要求`;
+    
+    const container = document.getElementById('req-list-container');
+    container.innerHTML = '';
+    
+    if (project.requirements.length === 0) {
+        // 默认添加一行
+        addRequirementRow();
+    } else {
+        project.requirements.forEach(req => {
+            addRequirementRow(req.name, req.value);
+        });
+    }
 
     const modal = document.getElementById('req-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    
+    if (window.lucide) lucide.createIcons();
+}
+
+function addRequirementRow(name = '', value = '') {
+    const container = document.getElementById('req-list-container');
+    const row = document.createElement('div');
+    row.className = 'flex gap-3 items-start group';
+    row.innerHTML = `
+        <input type="text" class="req-name-input flex-1 border-b border-gray-100 py-2 focus:border-green-400 outline-none text-sm font-medium" placeholder="要求项名称 (如: IELTS)" value="${name}">
+        <input type="text" class="req-value-input flex-1 border-b border-gray-100 py-2 focus:border-green-400 outline-none text-sm text-gray-600" placeholder="具体要求 (如: 7.0)" value="${value}">
+        <button onclick="this.parentElement.remove()" class="mt-2 text-gray-300 hover:text-red-400 transition">
+            <i data-lucide="minus-circle" class="w-4 h-4"></i>
+        </button>
+    `;
+    container.appendChild(row);
+    if (window.lucide) lucide.createIcons();
 }
 
 function closeReqModal() {
@@ -419,12 +430,18 @@ function saveRequirements() {
     const project = appData.projects.find(p => p.id === projectId);
     
     if (project) {
-        project.requirements = {
-            ielts: document.getElementById('req-ielts').value,
-            recommendationLetters: parseInt(document.getElementById('req-letters').value) || 0,
-            personalStatement: document.getElementById('req-ps').checked,
-            researchProposal: document.getElementById('req-rp').checked
-        };
+        const rows = document.querySelectorAll('#req-list-container > div');
+        const newRequirements = [];
+        
+        rows.forEach(row => {
+            const name = row.querySelector('.req-name-input').value.trim();
+            const value = row.querySelector('.req-value-input').value.trim();
+            if (name) {
+                newRequirements.push({ name, value });
+            }
+        });
+        
+        project.requirements = newRequirements;
         saveData();
         closeReqModal();
         showView('projects');
@@ -442,6 +459,14 @@ function renderComparisonView(container) {
         return;
     }
 
+    // 收集所有项目中出现过的要求名称
+    const allRequirementNames = new Set();
+    appData.projects.forEach(p => {
+        p.requirements.forEach(req => allRequirementNames.add(req.name));
+    });
+    
+    const requirementNames = Array.from(allRequirementNames);
+
     container.innerHTML = `
         <h1 class="text-4xl font-bold mb-2">要求对比</h1>
         <p class="text-gray-500 mb-10">横向对比不同项目的申请门槛</p>
@@ -453,45 +478,28 @@ function renderComparisonView(container) {
                         <th class="py-4 px-6 text-sm font-bold text-gray-400 uppercase tracking-wider">要求项目</th>
                         ${appData.projects.map(p => `
                             <th class="py-4 px-6 text-sm font-bold min-w-[200px]">
-                                <div class="text-blue-600">${p.school}</div>
+                                <div class="text-green-600">${p.school}</div>
                                 <div class="text-gray-400 font-normal normal-case mt-1">${p.major}</div>
                             </th>
                         `).join('')}
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    <tr>
-                        <td class="py-6 px-6 font-medium text-gray-700">语言要求 (IELTS)</td>
-                        ${appData.projects.map(p => `
-                            <td class="py-6 px-6 text-gray-600">${p.requirements.ielts || '—'}</td>
-                        `).join('')}
-                    </tr>
-                    <tr>
-                        <td class="py-6 px-6 font-medium text-gray-700">推荐信 (Letters)</td>
-                        ${appData.projects.map(p => `
-                            <td class="py-6 px-6 text-gray-600">${p.requirements.recommendationLetters} 封</td>
-                        `).join('')}
-                    </tr>
-                    <tr>
-                        <td class="py-6 px-6 font-medium text-gray-700">个人陈述 (PS)</td>
-                        ${appData.projects.map(p => `
-                            <td class="py-6 px-6">
-                                ${p.requirements.personalStatement ? 
-                                    '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">需要</span>' : 
-                                    '<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs">不需要</span>'}
+                    ${requirementNames.length === 0 ? `
+                        <tr>
+                            <td colspan="${appData.projects.length + 1}" class="py-10 text-center text-gray-400 italic">
+                                还没有配置任何要求，点击“项目概览”中的设置图标开始配置。
                             </td>
-                        `).join('')}
-                    </tr>
-                    <tr>
-                        <td class="py-6 px-6 font-medium text-gray-700">研究计划 (RP)</td>
-                        ${appData.projects.map(p => `
-                            <td class="py-6 px-6">
-                                ${p.requirements.researchProposal ? 
-                                    '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">需要</span>' : 
-                                    '<span class="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs">不需要</span>'}
-                            </td>
-                        `).join('')}
-                    </tr>
+                        </tr>
+                    ` : requirementNames.map(name => `
+                        <tr>
+                            <td class="py-6 px-6 font-medium text-gray-700">${name}</td>
+                            ${appData.projects.map(p => {
+                                const req = p.requirements.find(r => r.name === name);
+                                return `<td class="py-6 px-6 text-gray-600">${req ? req.value : '—'}</td>`;
+                            }).join('')}
+                        </tr>
+                    `).join('')}
                 </tbody>
             </table>
         </div>
