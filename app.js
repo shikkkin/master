@@ -6,12 +6,25 @@
 
 // --- 1. 数据状态管理 ---
 
+const GREEN_PALETTE = [
+    { name: 'Emerald', text: 'text-emerald-600', bg: 'bg-emerald-50', bar: 'bg-emerald-500', dot: 'text-emerald-400' },
+    { name: 'Teal', text: 'text-teal-600', bg: 'bg-teal-50', bar: 'bg-teal-500', dot: 'text-teal-400' },
+    { name: 'Lime', text: 'text-lime-600', bg: 'bg-lime-50', bar: 'bg-lime-500', dot: 'text-lime-400' },
+    { name: 'Cyan', text: 'text-cyan-600', bg: 'bg-cyan-50', bar: 'bg-cyan-500', dot: 'text-cyan-400' },
+    { name: 'Green', text: 'text-green-600', bg: 'bg-green-50', bar: 'bg-green-500', dot: 'text-green-400' },
+    { name: 'Mint', text: 'text-emerald-400', bg: 'bg-emerald-50', bar: 'bg-emerald-400', dot: 'text-emerald-300' }
+];
+
 // 从本地存储加载数据，如果没有则使用默认数据
 let appData = JSON.parse(localStorage.getItem('studyAbroadData'));
 
 // 数据结构迁移与兼容性处理
 if (appData && appData.projects) {
-    appData.projects.forEach(p => {
+    appData.projects.forEach((p, index) => {
+        // 确保每个项目都有一个颜色
+        if (!p.color) {
+            p.color = GREEN_PALETTE[index % GREEN_PALETTE.length];
+        }
         // 如果 requirements 不是数组，说明是旧版本的数据格式（对象）
         if (p.requirements && !Array.isArray(p.requirements)) {
             const oldReqs = p.requirements;
@@ -38,6 +51,7 @@ if (!appData) {
                 id: 1,
                 school: '伦敦大学学院 (UCL)',
                 major: '教育技术',
+                color: GREEN_PALETTE[0],
                 requirements: [
                     { name: '语言要求 (IELTS)', value: '7.0 (6.5)' },
                     { name: '推荐信', value: '2 封' },
@@ -124,15 +138,16 @@ function renderProjectsView(container) {
 
 function renderProjectCard(project) {
     const projectTasks = appData.tasks.filter(t => t.projectId === project.id);
+    const color = project.color || GREEN_PALETTE[0];
     
     return `
         <div class="notion-card p-6 bg-white shadow-sm flex flex-col h-full cursor-pointer" onclick="showView('project-detail', ${project.id})">
             <div class="flex justify-between items-start mb-4">
-                <div class="w-10 h-10 bg-green-50 rounded flex items-center justify-center text-green-600">
+                <div class="w-10 h-10 ${color.bg} rounded flex items-center justify-center ${color.text}">
                     <i data-lucide="school" class="w-6 h-6"></i>
                 </div>
                 <div class="flex gap-2" onclick="event.stopPropagation()">
-                    <button onclick="editRequirements(${project.id})" class="text-gray-300 hover:text-green-500 transition" title="配置要求">
+                    <button onclick="editRequirements(${project.id})" class="text-gray-300 hover:${color.text} transition" title="配置要求">
                         <i data-lucide="settings" class="w-4 h-4"></i>
                     </button>
                     <button onclick="deleteProject(${project.id})" class="text-gray-300 hover:text-red-500 transition" title="删除项目">
@@ -153,12 +168,12 @@ function renderProjectCard(project) {
                                 <div class="flex items-center gap-2 text-xs">
                                     <input type="checkbox" ${t.isCompleted ? 'checked' : ''} 
                                         onchange="toggleTask(${t.id})"
-                                        class="w-3 h-3 rounded border-gray-300 text-green-500 focus:ring-green-500 cursor-pointer">
+                                        class="w-3 h-3 rounded border-gray-300 ${color.text.replace('text-', 'text-')} focus:ring-green-500 cursor-pointer">
                                     <span class="truncate ${t.isCompleted ? 'text-gray-300 line-through' : 'text-gray-600'}">${t.title}</span>
                                 </div>
                             `).join('')
                         }
-                        ${projectTasks.length > 3 ? `<p class="text-[10px] text-green-400 mt-1">还有 ${projectTasks.length - 3} 个任务...</p>` : ''}
+                        ${projectTasks.length > 3 ? `<p class="text-[10px] ${color.text} mt-1">还有 ${projectTasks.length - 3} 个任务...</p>` : ''}
                     </div>
                 </div>
             </div>
@@ -169,7 +184,7 @@ function renderProjectCard(project) {
                     <span>${calculateProgress(project.id)}%</span>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${calculateProgress(project.id)}%"></div>
+                    <div class="progress-fill ${color.bar}" style="width: ${calculateProgress(project.id)}%"></div>
                 </div>
             </div>
         </div>
@@ -183,12 +198,13 @@ function renderProjectDetailView(container, projectId) {
         return;
     }
 
+    const color = project.color || GREEN_PALETTE[0];
     const projectTasks = appData.tasks.filter(t => t.projectId === project.id);
     const generalTasks = appData.tasks.filter(t => t.projectId === null);
 
     container.innerHTML = `
         <div class="mb-8 flex items-center gap-4">
-            <button onclick="showView('projects')" class="text-gray-400 hover:text-green-600 transition">
+            <button onclick="showView('projects')" class="text-gray-400 hover:${color.text} transition">
                 <i data-lucide="arrow-left" class="w-6 h-6"></i>
             </button>
             <div>
@@ -203,14 +219,14 @@ function renderProjectDetailView(container, projectId) {
                 <section>
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-xs text-gray-400 font-bold uppercase tracking-wider">申请要求</h2>
-                        <button onclick="editRequirements(${project.id})" class="text-xs text-green-600 hover:underline">编辑</button>
+                        <button onclick="editRequirements(${project.id})" class="text-xs ${color.text} hover:underline">编辑</button>
                     </div>
                     <div class="space-y-4">
                         ${project.requirements.length === 0 ? 
                             '<p class="text-sm text-gray-400 italic">尚未配置任何要求</p>' : 
                             project.requirements.map(req => `
-                                <div class="bg-gray-50 p-4 rounded-lg">
-                                    <p class="text-xs text-gray-400 font-medium mb-1">${req.name}</p>
+                                <div class="${color.bg} p-4 rounded-lg">
+                                    <p class="text-xs ${color.text} opacity-70 font-medium mb-1">${req.name}</p>
                                     <p class="text-sm font-semibold text-gray-700">${req.value}</p>
                                 </div>
                             `).join('')
@@ -224,7 +240,7 @@ function renderProjectDetailView(container, projectId) {
                         <span>${calculateProgress(project.id)}%</span>
                     </div>
                     <div class="progress-bar h-2">
-                        <div class="progress-fill" style="width: ${calculateProgress(project.id)}%"></div>
+                        <div class="progress-fill ${color.bar}" style="width: ${calculateProgress(project.id)}%"></div>
                     </div>
                 </section>
             </div>
@@ -236,7 +252,7 @@ function renderProjectDetailView(container, projectId) {
                         <h2 class="text-xl font-bold">项目专属任务</h2>
                     </div>
                     <div class="space-y-2">
-                        ${renderTaskList(projectTasks)}
+                        ${renderTaskList(projectTasks, color)}
                     </div>
                 </section>
 
@@ -245,7 +261,7 @@ function renderProjectDetailView(container, projectId) {
                         <h2 class="text-xl font-bold">通用任务 (关联)</h2>
                     </div>
                     <div class="space-y-2 opacity-75">
-                        ${renderTaskList(generalTasks)}
+                        ${renderTaskList(generalTasks, color)}
                     </div>
                 </section>
             </div>
@@ -306,24 +322,25 @@ function renderTasksView(container) {
             <!-- Project Specific Tasks -->
             ${appData.projects.map(p => {
                 const projectTasks = appData.tasks.filter(t => t.projectId == p.id);
+                const color = p.color || GREEN_PALETTE[0];
                 return `
                 <section class="bg-white rounded-2xl">
                     <div class="flex items-center justify-between mb-8 border-b border-gray-50 pb-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
+                            <div class="w-10 h-10 ${color.bg} rounded-full flex items-center justify-center ${color.text}">
                                 <i data-lucide="school" class="w-5 h-5"></i>
                             </div>
                             <div>
                                 <h2 class="text-2xl font-bold text-gray-800">${p.school}</h2>
-                                <p class="text-xs text-green-500 font-medium">${p.major}</p>
+                                <p class="text-xs ${color.text} font-medium">${p.major}</p>
                             </div>
                         </div>
-                        <span class="text-xs font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full">
+                        <span class="text-xs font-bold ${color.bg} ${color.text} px-3 py-1 rounded-full">
                             ${projectTasks.length} 个事项
                         </span>
                     </div>
                     <div class="grid grid-cols-1 gap-2">
-                        ${renderTaskList(projectTasks)}
+                        ${renderTaskList(projectTasks, color)}
                     </div>
                 </section>
                 `;
@@ -332,17 +349,20 @@ function renderTasksView(container) {
     `;
 }
 
-function renderTaskList(tasks) {
+function renderTaskList(tasks, color = null) {
     if (tasks.length === 0) {
         return `<p class="text-gray-400 text-sm italic ml-7">暂无任务</p>`;
     }
+    
+    const activeColorClass = color ? color.text.replace('text-', 'text-') : 'text-green-500';
+    const activeFocusClass = color ? color.text.replace('text-', 'focus:ring-') : 'focus:ring-green-500';
     
     return tasks.map(t => `
         <div class="group flex items-start justify-between p-3 rounded hover:bg-gray-50 border-b border-gray-50 transition">
             <div class="flex items-start gap-3 flex-1">
                 <input type="checkbox" ${t.isCompleted ? 'checked' : ''} 
                     onchange="toggleTask(${t.id})"
-                    class="mt-1 w-5 h-5 rounded border-gray-300 text-green-500 focus:ring-green-500 cursor-pointer">
+                    class="mt-1 w-5 h-5 rounded border-gray-300 ${activeColorClass} ${activeFocusClass} cursor-pointer">
                 <div class="flex-1">
                     <div class="flex items-center gap-2">
                         <p class="font-medium ${t.isCompleted ? 'line-through text-gray-300' : 'text-gray-700'}">${t.title}</p>
@@ -352,7 +372,7 @@ function renderTaskList(tasks) {
                 </div>
             </div>
             <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
-                <button onclick="editTask(${t.id})" class="text-gray-300 hover:text-blue-500 transition px-2">
+                <button onclick="editTask(${t.id})" class="text-gray-300 hover:text-green-500 transition px-2">
                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                 </button>
                 <button onclick="deleteTask(${t.id})" class="text-gray-300 hover:text-red-500 transition px-2">
@@ -391,6 +411,7 @@ function confirmAddProject() {
         id: Date.now(),
         school: school,
         major: major,
+        color: GREEN_PALETTE[appData.projects.length % GREEN_PALETTE.length],
         requirements: []
     };
 
@@ -677,12 +698,15 @@ function updateSidebar() {
     const sidebarList = document.getElementById('sidebar-projects-list');
     if (!sidebarList) return;
     
-    sidebarList.innerHTML = appData.projects.map(p => `
+    sidebarList.innerHTML = appData.projects.map(p => {
+        const color = p.color || GREEN_PALETTE[0];
+        return `
         <button id="project-btn-${p.id}" onclick="showView('project-detail', ${p.id})" class="w-full text-left px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 truncate flex items-center gap-2">
-            <span class="text-xs text-green-400">●</span>
+            <span class="text-xs ${color.dot}">●</span>
             <span class="truncate">${p.school}</span>
         </button>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function calculateProgress(projectId) {
