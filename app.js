@@ -9,6 +9,27 @@
 // 从本地存储加载数据，如果没有则使用默认数据
 let appData = JSON.parse(localStorage.getItem('studyAbroadData'));
 
+// 数据结构迁移与兼容性处理
+if (appData && appData.projects) {
+    appData.projects.forEach(p => {
+        // 如果 requirements 不是数组，说明是旧版本的数据格式（对象）
+        if (p.requirements && !Array.isArray(p.requirements)) {
+            const oldReqs = p.requirements;
+            const newReqs = [];
+            
+            // 映射旧的固定字段到新的动态数组格式
+            if (oldReqs.ielts) newReqs.push({ name: '语言要求 (IELTS)', value: oldReqs.ielts });
+            if (oldReqs.recommendationLetters) newReqs.push({ name: '推荐信', value: `${oldReqs.recommendationLetters} 封` });
+            if (oldReqs.personalStatement) newReqs.push({ name: '个人陈述 (PS)', value: '需要' });
+            if (oldReqs.researchProposal) newReqs.push({ name: '研究计划 (RP)', value: '需要' });
+            
+            p.requirements = newReqs;
+        }
+    });
+    // 保存迁移后的数据
+    localStorage.setItem('studyAbroadData', JSON.stringify(appData));
+}
+
 // 如果是新用户，初始化一些示例数据
 if (!appData) {
     appData = {
@@ -41,18 +62,27 @@ function saveData() {
 
 // --- 2. 路由与视图切换 ---
 
-function showView(viewId) {
+function showView(viewId, params = null) {
     const container = document.getElementById('view-container');
     
     // 更新导航栏激活状态
-    document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
-    const activeNav = document.getElementById(`nav-${viewId}`);
-    if (activeNav) activeNav.classList.add('active');
+    document.querySelectorAll('.sidebar-item, #sidebar-projects-list button').forEach(el => el.classList.remove('active'));
+    
+    if (viewId === 'project-detail') {
+        const projectBtn = document.querySelector(`#project-btn-${params}`);
+        if (projectBtn) projectBtn.classList.add('active');
+    } else {
+        const activeNav = document.getElementById(`nav-${viewId}`);
+        if (activeNav) activeNav.classList.add('active');
+    }
 
     // 根据视图 ID 渲染内容
     switch(viewId) {
         case 'projects':
             renderProjectsView(container);
+            break;
+        case 'project-detail':
+            renderProjectDetailView(container, params);
             break;
         case 'tasks':
             renderTasksView(container);
@@ -94,16 +124,15 @@ function renderProjectsView(container) {
 
 function renderProjectCard(project) {
     const projectTasks = appData.tasks.filter(t => t.projectId === project.id);
-    const completedCount = projectTasks.filter(t => t.isCompleted).underline;
     
     return `
-        <div class="notion-card p-6 bg-white shadow-sm flex flex-col h-full">
+        <div class="notion-card p-6 bg-white shadow-sm flex flex-col h-full cursor-pointer" onclick="showView('project-detail', ${project.id})">
             <div class="flex justify-between items-start mb-4">
-                <div class="w-10 h-10 bg-blue-50 rounded flex items-center justify-center text-blue-600">
+                <div class="w-10 h-10 bg-green-50 rounded flex items-center justify-center text-green-600">
                     <i data-lucide="school" class="w-6 h-6"></i>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="editRequirements(${project.id})" class="text-gray-300 hover:text-blue-500 transition" title="配置要求">
+                <div class="flex gap-2" onclick="event.stopPropagation()">
+                    <button onclick="editRequirements(${project.id})" class="text-gray-300 hover:text-green-500 transition" title="配置要求">
                         <i data-lucide="settings" class="w-4 h-4"></i>
                     </button>
                     <button onclick="deleteProject(${project.id})" class="text-gray-300 hover:text-red-500 transition" title="删除项目">
@@ -117,17 +146,19 @@ function renderProjectCard(project) {
             <div class="space-y-2 mb-6 flex-1">
                 <div class="mt-4 pt-4 border-t border-gray-50">
                     <p class="text-[10px] text-gray-400 uppercase font-bold mb-2">专属任务 (${projectTasks.length})</p>
-                    <div class="space-y-1">
+                    <div class="space-y-1" onclick="event.stopPropagation()">
                         ${projectTasks.length === 0 ? 
                             '<p class="text-xs text-gray-300 italic">暂无专属任务</p>' : 
                             projectTasks.slice(0, 3).map(t => `
-                                <div class="flex items-center gap-2 text-xs ${t.isCompleted ? 'text-gray-300 line-through' : 'text-gray-600'}">
-                                    <div class="w-1 h-1 rounded-full ${t.isCompleted ? 'bg-gray-200' : 'bg-blue-400'}"></div>
-                                    <span class="truncate">${t.title}</span>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <input type="checkbox" ${t.isCompleted ? 'checked' : ''} 
+                                        onchange="toggleTask(${t.id})"
+                                        class="w-3 h-3 rounded border-gray-300 text-green-500 focus:ring-green-500 cursor-pointer">
+                                    <span class="truncate ${t.isCompleted ? 'text-gray-300 line-through' : 'text-gray-600'}">${t.title}</span>
                                 </div>
                             `).join('')
                         }
-                        ${projectTasks.length > 3 ? `<p class="text-[10px] text-blue-400 mt-1">还有 ${projectTasks.length - 3} 个任务...</p>` : ''}
+                        ${projectTasks.length > 3 ? `<p class="text-[10px] text-green-400 mt-1">还有 ${projectTasks.length - 3} 个任务...</p>` : ''}
                     </div>
                 </div>
             </div>
@@ -145,58 +176,158 @@ function renderProjectCard(project) {
     `;
 }
 
+function renderProjectDetailView(container, projectId) {
+    const project = appData.projects.find(p => p.id === projectId);
+    if (!project) {
+        showView('projects');
+        return;
+    }
+
+    const projectTasks = appData.tasks.filter(t => t.projectId === project.id);
+    const generalTasks = appData.tasks.filter(t => t.projectId === null);
+
+    container.innerHTML = `
+        <div class="mb-8 flex items-center gap-4">
+            <button onclick="showView('projects')" class="text-gray-400 hover:text-green-600 transition">
+                <i data-lucide="arrow-left" class="w-6 h-6"></i>
+            </button>
+            <div>
+                <h1 class="text-4xl font-bold mb-2">${project.school}</h1>
+                <p class="text-gray-500 text-lg">${project.major}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-12 mt-12">
+            <!-- Left: Requirements -->
+            <div class="lg:col-span-1 space-y-8">
+                <section>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xs text-gray-400 font-bold uppercase tracking-wider">申请要求</h2>
+                        <button onclick="editRequirements(${project.id})" class="text-xs text-green-600 hover:underline">编辑</button>
+                    </div>
+                    <div class="space-y-4">
+                        ${project.requirements.length === 0 ? 
+                            '<p class="text-sm text-gray-400 italic">尚未配置任何要求</p>' : 
+                            project.requirements.map(req => `
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="text-xs text-gray-400 font-medium mb-1">${req.name}</p>
+                                    <p class="text-sm font-semibold text-gray-700">${req.value}</p>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </section>
+
+                <section>
+                    <div class="flex justify-between text-xs text-gray-400 font-bold uppercase tracking-wider mb-4">
+                        <span>准备进度</span>
+                        <span>${calculateProgress(project.id)}%</span>
+                    </div>
+                    <div class="progress-bar h-2">
+                        <div class="progress-fill" style="width: ${calculateProgress(project.id)}%"></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right: Tasks -->
+            <div class="lg:col-span-2 space-y-12">
+                <section>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">项目专属任务</h2>
+                    </div>
+                    <div class="space-y-2">
+                        ${renderTaskList(projectTasks)}
+                    </div>
+                </section>
+
+                <section>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">通用任务 (关联)</h2>
+                    </div>
+                    <div class="space-y-2 opacity-75">
+                        ${renderTaskList(generalTasks)}
+                    </div>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
 function renderTasksView(container) {
     container.innerHTML = `
-        <div class="mb-8">
+        <div class="mb-12">
             <h1 class="text-4xl font-bold mb-2">任务中心</h1>
-            <p class="text-gray-500">管理所有项目的待办事项</p>
+            <p class="text-gray-500 text-lg">按学校分类管理你的所有待办事项</p>
         </div>
 
         <!-- Add Task Form -->
-        <div class="mb-10 bg-gray-50 p-6 rounded-lg">
-            <h3 class="text-sm font-bold text-gray-400 uppercase mb-4 tracking-widest">添加新任务</h3>
+        <div class="mb-16 bg-white border border-gray-100 shadow-sm p-8 rounded-xl">
+            <h3 class="text-xs font-bold text-gray-400 uppercase mb-6 tracking-widest">快速添加任务</h3>
             <div class="space-y-4">
                 <div class="flex flex-col md:flex-row gap-4">
-                    <input id="task-input" type="text" class="flex-1 px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400" placeholder="任务标题，例如：联系推荐人">
-                    <input id="task-deadline-input" type="date" class="px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white text-sm text-gray-500">
-                    <select id="task-project-select" class="px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white">
-                        <option value="null">通用任务 (所有项目共享)</option>
-                        ${appData.projects.map(p => `<option value="${p.id}">${p.school}</option>`).join('')}
+                    <input id="task-input" type="text" class="flex-1 px-4 py-3 bg-gray-50 border-transparent rounded-lg outline-none focus:bg-white focus:border-green-400 transition" placeholder="任务标题，例如：准备 PS 稿件">
+                    <input id="task-deadline-input" type="date" class="px-4 py-3 bg-gray-50 border-transparent rounded-lg outline-none focus:bg-white focus:border-green-400 text-sm text-gray-500 transition">
+                    <select id="task-project-select" class="px-4 py-3 bg-gray-50 border-transparent rounded-lg outline-none focus:bg-white focus:border-green-400 bg-white text-sm transition">
+                        <option value="null">🌐 通用任务</option>
+                        ${appData.projects.map(p => `<option value="${p.id}">🏫 ${p.school}</option>`).join('')}
                     </select>
                 </div>
-                <textarea id="task-desc-input" class="w-full px-4 py-2 border border-gray-200 rounded outline-none focus:border-blue-400 bg-white text-sm h-20" placeholder="任务详情或具体要求..."></textarea>
+                <textarea id="task-desc-input" class="w-full px-4 py-3 bg-gray-50 border-transparent rounded-lg outline-none focus:bg-white focus:border-green-400 text-sm h-24 transition" placeholder="补充任务详情..."></textarea>
                 <div class="flex justify-end">
-                    <button onclick="addTask()" class="bg-black text-white px-8 py-2 rounded hover:bg-gray-800 transition">
-                        添加任务
+                    <button onclick="addTask()" class="bg-green-600 text-white px-10 py-3 rounded-lg font-medium hover:bg-green-700 transition shadow-lg shadow-green-100">
+                        添加至清单
                     </button>
                 </div>
             </div>
         </div>
 
-        <div class="space-y-12">
+        <div class="space-y-16">
             <!-- General Tasks -->
-            <section>
-                <div class="flex items-center gap-2 mb-4">
-                    <i data-lucide="globe" class="w-5 h-5 text-gray-400"></i>
-                    <h2 class="text-xl font-bold">通用任务</h2>
+            <section class="bg-white rounded-2xl">
+                <div class="flex items-center justify-between mb-8 border-b border-gray-50 pb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">
+                            <i data-lucide="globe" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">通用任务</h2>
+                            <p class="text-xs text-gray-400 font-medium">所有项目共享的基础准备</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold bg-gray-100 text-gray-500 px-3 py-1 rounded-full">
+                        ${appData.tasks.filter(t => t.projectId === null).length} 个事项
+                    </span>
                 </div>
-                <div class="space-y-2">
+                <div class="grid grid-cols-1 gap-2">
                     ${renderTaskList(appData.tasks.filter(t => t.projectId === null))}
                 </div>
             </section>
 
             <!-- Project Specific Tasks -->
-            ${appData.projects.map(p => `
-                <section>
-                    <div class="flex items-center gap-2 mb-4">
-                        <i data-lucide="school" class="w-5 h-5 text-blue-400"></i>
-                        <h2 class="text-xl font-bold">${p.school} - 专属任务</h2>
+            ${appData.projects.map(p => {
+                const projectTasks = appData.tasks.filter(t => t.projectId == p.id);
+                return `
+                <section class="bg-white rounded-2xl">
+                    <div class="flex items-center justify-between mb-8 border-b border-gray-50 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
+                                <i data-lucide="school" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800">${p.school}</h2>
+                                <p class="text-xs text-green-500 font-medium">${p.major}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full">
+                            ${projectTasks.length} 个事项
+                        </span>
                     </div>
-                    <div class="space-y-2">
-                        ${renderTaskList(appData.tasks.filter(t => t.projectId == p.id))}
+                    <div class="grid grid-cols-1 gap-2">
+                        ${renderTaskList(projectTasks)}
                     </div>
                 </section>
-            `).join('')}
+                `;
+            }).join('')}
         </div>
     `;
 }
@@ -211,7 +342,7 @@ function renderTaskList(tasks) {
             <div class="flex items-start gap-3 flex-1">
                 <input type="checkbox" ${t.isCompleted ? 'checked' : ''} 
                     onchange="toggleTask(${t.id})"
-                    class="mt-1 w-5 h-5 rounded border-gray-300 text-blue-500 focus:ring-blue-500 cursor-pointer">
+                    class="mt-1 w-5 h-5 rounded border-gray-300 text-green-500 focus:ring-green-500 cursor-pointer">
                 <div class="flex-1">
                     <div class="flex items-center gap-2">
                         <p class="font-medium ${t.isCompleted ? 'line-through text-gray-300' : 'text-gray-700'}">${t.title}</p>
@@ -313,12 +444,46 @@ function toggleTask(taskId) {
     if (task) {
         task.isCompleted = !task.isCompleted;
         saveData();
-        // 如果在项目视图，刷新项目视图以更新进度
-        const currentNav = document.querySelector('.sidebar-item.active').id;
-        if (currentNav === 'nav-projects') {
-            showView('projects');
+        refreshCurrentView(task.projectId);
+    }
+}
+
+function refreshCurrentView(projectId = null) {
+    const activeItem = document.querySelector('.sidebar-item.active');
+    if (!activeItem) {
+        showView('projects');
+        return;
+    }
+
+    const currentNavId = activeItem.id;
+    if (currentNavId === 'nav-projects') {
+        showView('projects');
+    } else if (currentNavId === 'nav-tasks') {
+        showView('tasks');
+    } else if (currentNavId === 'nav-comparison') {
+        showView('comparison');
+    } else {
+        // 可能是项目详情页，因为详情页没有 nav-id，或者我们需要一个更好的方式判断
+        // 我们检查当前视图容器里的内容
+        const container = document.getElementById('view-container');
+        if (container.querySelector('h1').innerText === '项目概览') {
+             showView('projects');
+        } else if (container.querySelector('h1').innerText === '任务中心') {
+             showView('tasks');
+        } else if (container.querySelector('h1').innerText === '要求对比') {
+             showView('comparison');
         } else {
-            showView('tasks');
+            // 假设是项目详情页，我们尝试从页面中获取当前的 projectId
+            // 或者更简单：如果 activeItem 是侧边栏的具体项目按钮
+            if (activeItem.onclick.toString().includes('project-detail')) {
+                // 这里的处理有点复杂，因为 params 没存
+                // 简单起见，我们重新获取 activeItem 绑定的 ID
+                const onclickStr = activeItem.getAttribute('onclick');
+                const match = onclickStr.match(/project-detail',\s*(\d+)/);
+                if (match) {
+                    showView('project-detail', Number(match[1]));
+                }
+            }
         }
     }
 }
@@ -513,8 +678,8 @@ function updateSidebar() {
     if (!sidebarList) return;
     
     sidebarList.innerHTML = appData.projects.map(p => `
-        <button onclick="showView('projects')" class="w-full text-left px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 truncate flex items-center gap-2">
-            <span class="text-xs text-blue-400">●</span>
+        <button id="project-btn-${p.id}" onclick="showView('project-detail', ${p.id})" class="w-full text-left px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 truncate flex items-center gap-2">
+            <span class="text-xs text-green-400">●</span>
             <span class="truncate">${p.school}</span>
         </button>
     `).join('');
