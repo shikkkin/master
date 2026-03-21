@@ -368,7 +368,7 @@ function renderTaskList(tasks, color = null) {
                         <p class="font-medium ${t.isCompleted ? 'line-through text-gray-300' : 'text-gray-700'}">${t.title}</p>
                         ${t.deadline ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 font-bold uppercase">截止: ${t.deadline}</span>` : ''}
                     </div>
-                    ${t.description ? `<p class="text-xs text-gray-400 mt-1 leading-relaxed">${t.description}</p>` : ''}
+                    ${t.description ? `<p class="text-sm text-gray-500 mt-2 leading-relaxed whitespace-pre-wrap">${t.description}</p>` : ''}
                 </div>
             </div>
             <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
@@ -655,37 +655,43 @@ function renderComparisonView(container) {
 
     container.innerHTML = `
         <h1 class="text-4xl font-bold mb-2">要求对比</h1>
-        <p class="text-gray-500 mb-10">横向对比不同项目的申请门槛</p>
+        <p class="text-gray-500 mb-10">横向对比不同项目的申请门槛 (学校垂直排列)</p>
 
         <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
+            <table class="w-full border-collapse border border-gray-100">
                 <thead>
-                    <tr class="text-left border-b-2 border-gray-100">
-                        <th class="py-4 px-6 text-sm font-bold text-gray-400 uppercase tracking-wider">要求项目</th>
-                        ${appData.projects.map(p => `
-                            <th class="py-4 px-6 text-sm font-bold min-w-[200px]">
-                                <div class="text-green-600">${p.school}</div>
-                                <div class="text-gray-400 font-normal normal-case mt-1">${p.major}</div>
-                            </th>
+                    <tr class="text-left bg-gray-50">
+                        <th class="py-4 px-6 text-sm font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">学校项目</th>
+                        ${requirementNames.map(name => `
+                            <th class="py-4 px-6 text-sm font-bold text-gray-600 border-b border-gray-100 min-w-[150px]">${name}</th>
                         `).join('')}
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
-                    ${requirementNames.length === 0 ? `
-                        <tr>
-                            <td colspan="${appData.projects.length + 1}" class="py-10 text-center text-gray-400 italic">
-                                还没有配置任何要求，点击“项目概览”中的设置图标开始配置。
+                    ${appData.projects.map(p => {
+                        const color = p.color || GREEN_PALETTE[0];
+                        return `
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="py-6 px-6 border-r border-gray-50">
+                                <div class="font-bold ${color.text}">${p.school}</div>
+                                <div class="text-xs text-gray-400 mt-1">${p.major}</div>
                             </td>
-                        </tr>
-                    ` : requirementNames.map(name => `
-                        <tr>
-                            <td class="py-6 px-6 font-medium text-gray-700">${name}</td>
-                            ${appData.projects.map(p => {
+                            ${requirementNames.map(name => {
                                 const req = p.requirements.find(r => r.name === name);
-                                return `<td class="py-6 px-6 text-gray-600">${req ? req.value : '—'}</td>`;
+                                return `
+                                <td class="py-6 px-6 text-sm text-gray-600 border-r border-gray-50 last:border-r-0">
+                                    ${req ? req.value : '<span class="text-gray-300">—</span>'}
+                                </td>
+                                `;
                             }).join('')}
                         </tr>
-                    `).join('')}
+                        `;
+                    }).join('')}
+                    ${requirementNames.length === 0 ? `
+                        <tr>
+                            <td colspan="1" class="py-10 px-6 text-gray-400 italic">还没有配置任何要求</td>
+                        </tr>
+                    ` : ''}
                 </tbody>
             </table>
         </div>
