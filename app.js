@@ -725,7 +725,52 @@ function calculateProgress(projectId) {
     return progress;
 }
 
-// --- 7. 手机端交互 ---
+// --- 7. 数据导入导出 ---
+
+function exportDataToFile() {
+    const dataStr = JSON.stringify(appData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `study_abroad_data_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function triggerImport() {
+    document.getElementById('import-file-input').click();
+}
+
+function importDataFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            // 简单的结构验证
+            if (importedData && importedData.projects && importedData.tasks) {
+                if (confirm('导入新数据将覆盖当前所有数据，确定继续吗？')) {
+                    appData = importedData;
+                    saveData();
+                    window.location.reload(); // 刷新页面以应用新数据
+                }
+            } else {
+                alert('数据格式不正确，无法导入。');
+            }
+        } catch (err) {
+            alert('读取文件失败，请确保选择的是正确的 JSON 文件。');
+        }
+    };
+    reader.readAsText(file);
+}
+
+// --- 8. 手机端交互 ---
 
 function toggleMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
