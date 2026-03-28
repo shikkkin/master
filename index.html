@@ -45,6 +45,10 @@
             transition: width 0.3s ease;
         }
 
+        #mobile-overlay {
+            display: none;
+        }
+
         /* Mobile Adjustments */
         @media (max-width: 768px) {
             .sidebar-open {
@@ -52,9 +56,6 @@
             }
             .sidebar-closed {
                 transform: translateX(-100%);
-            }
-            #mobile-overlay {
-                display: none;
             }
             #mobile-overlay.active {
                 display: block;
