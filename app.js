@@ -707,7 +707,7 @@ function updateSidebar() {
     sidebarList.innerHTML = appData.projects.map(p => {
         const color = p.color || GREEN_PALETTE[0];
         return `
-        <button id="project-btn-${p.id}" onclick="showView('project-detail', ${p.id})" class="w-full text-left px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 truncate flex items-center gap-2">
+        <button id="project-btn-${p.id}" onclick="showView('project-detail', ${p.id}); closeMobileSidebar();" class="w-full text-left px-3 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 truncate flex items-center gap-2">
             <span class="text-xs ${color.dot}">●</span>
             <span class="truncate">${p.school}</span>
         </button>
@@ -725,7 +725,33 @@ function calculateProgress(projectId) {
     return progress;
 }
 
-// --- 6. 初始化 ---
+// --- 7. 手机端交互 ---
+
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobile-overlay');
+    
+    if (sidebar.classList.contains('sidebar-closed')) {
+        sidebar.classList.remove('sidebar-closed');
+        sidebar.classList.add('sidebar-open');
+        overlay.classList.add('active');
+    } else {
+        sidebar.classList.remove('sidebar-open');
+        sidebar.classList.add('sidebar-closed');
+        overlay.classList.remove('active');
+    }
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobile-overlay');
+    
+    sidebar.classList.remove('sidebar-open');
+    sidebar.classList.add('sidebar-closed');
+    overlay.classList.remove('active');
+}
+
+// --- 8. 初始化 ---
 
 document.addEventListener('DOMContentLoaded', () => {
     showView('projects');

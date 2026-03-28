@@ -44,44 +44,85 @@
             background-color: #50ddaa;
             transition: width 0.3s ease;
         }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .sidebar-open {
+                transform: translateX(0);
+            }
+            .sidebar-closed {
+                transform: translateX(-100%);
+            }
+            #mobile-overlay {
+                display: none;
+            }
+            #mobile-overlay.active {
+                display: block;
+            }
+        }
     </style>
 </head>
-<body class="flex h-screen">
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Mobile Header -->
+    <header class="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 z-40">
+        <div class="flex items-center space-x-2 font-semibold">
+            <i data-lucide="graduation-cap" class="w-5 h-5 text-green-600"></i>
+            <span>留学助手</span>
+        </div>
+        <button onclick="toggleMobileSidebar()" class="p-2 text-gray-500">
+            <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+    </header>
+
+    <!-- Mobile Overlay -->
+    <div id="mobile-overlay" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/20 z-40 transition-opacity"></div>
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-[#fbfbfa] border-r border-gray-200 flex flex-col">
-        <div class="p-4 flex items-center space-x-2 font-semibold text-lg">
-            <i data-lucide="graduation-cap" class="w-6 h-6"></i>
-            <span>留学申请助手</span>
+    <aside id="sidebar" class="fixed md:relative w-72 h-full bg-[#fbfbfa] border-r border-gray-200 flex flex-col z-50 transition-transform duration-300 sidebar-closed md:transform-none">
+        <div class="p-4 flex items-center justify-between font-semibold text-lg border-b border-gray-50 md:border-none">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="graduation-cap" class="w-6 h-6 text-green-600"></i>
+                <span>留学申请助手</span>
+            </div>
+            <button onclick="toggleMobileSidebar()" class="md:hidden p-1 text-gray-400">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
         
-        <nav class="flex-1 px-2 py-4 space-y-1">
-            <button onclick="showView('projects')" id="nav-projects" class="sidebar-item active w-full flex items-center space-x-2 px-3 py-1.5 rounded text-sm text-gray-700">
-                <i data-lucide="layout-grid" class="w-4 h-4"></i>
+        <nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+            <button onclick="showView('projects'); closeMobileSidebar();" id="nav-projects" class="sidebar-item active w-full flex items-center space-x-2 px-3 py-2 rounded text-sm text-gray-700 transition-colors">
+                <i data-lucide="layout-grid" class="w-4 h-4 text-gray-400"></i>
                 <span>项目概览</span>
             </button>
-            <button onclick="showView('tasks')" id="nav-tasks" class="sidebar-item w-full flex items-center space-x-2 px-3 py-1.5 rounded text-sm text-gray-700">
-                <i data-lucide="check-square" class="w-4 h-4"></i>
+            <button onclick="showView('tasks'); closeMobileSidebar();" id="nav-tasks" class="sidebar-item w-full flex items-center space-x-2 px-3 py-2 rounded text-sm text-gray-700 transition-colors">
+                <i data-lucide="check-square" class="w-4 h-4 text-gray-400"></i>
                 <span>任务中心</span>
             </button>
-            <button onclick="showView('comparison')" id="nav-comparison" class="sidebar-item w-full flex items-center space-x-2 px-3 py-1.5 rounded text-sm text-gray-700">
-                <i data-lucide="columns" class="w-4 h-4"></i>
+            <button onclick="showView('comparison'); closeMobileSidebar();" id="nav-comparison" class="sidebar-item w-full flex items-center space-x-2 px-3 py-2 rounded text-sm text-gray-700 transition-colors">
+                <i data-lucide="columns" class="w-4 h-4 text-gray-400"></i>
                 <span>要求对比</span>
             </button>
+
+            <div class="mt-8 px-3">
+                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">我的项目</p>
+                <div id="sidebar-projects-list" class="space-y-1">
+                    <!-- Project shortcuts will go here -->
+                </div>
+            </div>
         </nav>
 
-        <div class="p-4 border-t border-gray-100">
-            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">我的项目</p>
-            <div id="sidebar-projects-list" class="mt-2 space-y-1">
-                <!-- Project shortcuts will go here -->
-            </div>
+        <div class="p-4 border-t border-gray-100 text-[10px] text-gray-400 text-center">
+            Vibe Coding Mentor @ 2026
         </div>
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto bg-white p-8 md:p-12 lg:px-24">
-        <div id="view-container">
-            <!-- Content will be dynamically loaded here -->
+    <main class="flex-1 overflow-y-auto bg-white pt-14 md:pt-0">
+        <div class="p-6 md:p-12 lg:px-24 max-w-7xl mx-auto">
+            <div id="view-container">
+                <!-- Content will be dynamically loaded here -->
+            </div>
         </div>
     </main>
 
